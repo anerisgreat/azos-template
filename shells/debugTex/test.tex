@@ -1,0 +1,94 @@
+% Created 2024-09-09 Mon 10:39
+% Intended LaTeX compiler: pdflatex
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\usepackage{polyglossia}
+\usepackage{tabularx}
+\usepackage[cache=false]{minted}
+\usepackage{xcolor}
+\usepackage{amsfonts}
+\usepackage{transparent}
+\usepackage{amsmath}
+\definecolor{codebg}{rgb}{0.95,0.95,0.95}
+\setdefaultlanguage{english}
+\setlength{\parindent}{0in}
+
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\newfontfamily\hebrewfont{LiberationSans}[Script=Hebrew]
+\newfontfamily\hebrewfonttt{LiberationSans}[Script=Hebrew]
+\newfontfamily\hebrewfontsf{LiberationSans}[Script=Hebrew]
+\setotherlanguage{hebrew}
+\setminted{
+    bgcolor=codebg,
+    breaklines=true,
+    mathescape,
+    fontsize=\scriptsize,
+    linenos=false,
+}
+
+
+\setotherlanguage{hebrew}
+\author{Aner Zakobar}
+\date{\today}
+\title{Test ORG file}
+\hypersetup{
+ pdfauthor={Aner Zakobar},
+ pdftitle={Test ORG file},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.4 (Org mode 9.6.15)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+
+\section{Test equation}
+\label{sec:org99ed951}
+
+$$\mathbb{E}[\max(X_i - \mathbb{E}(X_i))] \geq \frac{\sqrt{p}}{3}\sqrt{\frac{\log N}{n}}\cdot\left(1 - \frac{1}{e}\right)$$
+
+\section{Header}
+\label{sec:orgc14cd1f}
+
+\subsection{Test code}
+\label{sec:orgb6381b8}
+
+\begin{minted}[]{python}
+def a(b):
+    print(b)
+
+a(3)
+\end{minted}
+
+\begin{verbatim}
+3
+\end{verbatim}
+
+\section{Test Hebrew}
+\label{sec:org6df4d22}
+
+\begin{hebrew}
+
+אני מקווה שזה עובד.
+
+\end{hebrew}
+
+\subsection{More stuff}
+\label{sec:org4700fe9}
+
+Done!
+\end{document}
