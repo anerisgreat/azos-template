@@ -1,0 +1,3 @@
+* AZOS template
+
+This is to create new confs for new repos!

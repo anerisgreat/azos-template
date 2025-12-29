@@ -1,0 +1,17 @@
+#+title: Aner's Emacs EXWM Configuration
+#+property: header-args :results silent
+
+* Base setup
+** Require
+
+#+begin_src emacs-lisp
+(require 'azos-emacs-example)
+#+end_src
+
+* Example specific blocks here
+
+* Provide
+
+#+begin_src emacs-lisp
+(provide 'azos-emacs-example)
+#+end_src

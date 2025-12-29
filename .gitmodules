@@ -1,0 +1,3 @@
+[submodule "azos-core"]
+	path = azos-core
+	url = git@github.com:anerisgreat/azos-core.git

@@ -1,0 +1,5 @@
+{
+  imports = [
+    ./example-emacs.nix
+  ];
+}
