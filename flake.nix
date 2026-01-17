@@ -2,13 +2,14 @@
   description = "Your new nix config";
 
   inputs = {
+    self.submodules = true;
     # Nixpkgs
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager/release-24.05";
     home-manager.inputs.nixpkgs.follows = "nixpkgs";
     azos-core = {
-      url = "git+file:./azos-core";
+      url = "./azos-core";
       flake = true;
     };
   };
