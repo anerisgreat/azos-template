@@ -1,19 +1,14 @@
 {
-  description = "Aner's NIX config for his systems!";
+  description = "Azos NIX config template";
 
   inputs = {
     self.submodules = true;
-    # Nixpkgs
-    #Temporarily
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-    # nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
 
-    # Unused unstable
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
 
     home-manager = {
-      # Follow corresponding `release` branch from Home Manager
-      url = "github:nix-community/home-manager/release-25.11";
+      url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -23,42 +18,34 @@
       url = "./azos-core";
       flake = true;
     };
+
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    import-tree.url = "github:vic/import-tree";
   };
 
-  outputs = {
-    self,
-    nixpkgs,
-    home-manager,
-    ...
-  } @ inputs: let
-    inherit (self) outputs;
-    systems = [
-      "aarch64-linux"
-      "x86_64-linux"
-      "aarch64-darwin"
-      "x86_64-darwin"
-    ];
-    forAllSystems = nixpkgs.lib.genAttrs systems;
-  in {
-    formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
+  outputs = inputs:
+    inputs.flake-parts.lib.mkFlake {inherit inputs;} {
+      imports = [
+        inputs.azos-core.flakeModules.default
+        ./overlays/default.nix
+        (inputs.import-tree ./features)
+        ./_machines/example.nix
+      ];
 
-    overlays = import ./overlays {inherit inputs;};
-    azos-core.nixosModules = inputs.azos-core.nixosModules.nixosModules;
-    nixosModules = import ./modules/nixos;
-    azos-core.homeManagerModules = inputs.azos-core.nixosModules.homeManagerModules;
-    homeManagerModules = import ./modules/home-manager;
+      systems = [
+        "aarch64-linux"
+        "x86_64-linux"
+        "aarch64-darwin"
+        "x86_64-darwin"
+      ];
 
-    #Systems configured
-    nixosConfigurations = {
-      #Example hardware
-      # example_hardware = nixpkgs.lib.nixosSystem {
-      #   specialArgs = {inherit inputs outputs;};
-      #   modules = [
-      #     ./nixos/configuration.nix
-      #   ];
-      # };
+      perSystem = {
+        system,
+        pkgs,
+        ...
+      }: {
+        formatter = pkgs.alejandra;
+        devShells = (import ./shells) {inherit pkgs;};
+      };
     };
-
-    devShells = forAllSystems (system: ((import ./shells) {pkgs = nixpkgs.legacyPackages.${system}; }));
-  };
 }
