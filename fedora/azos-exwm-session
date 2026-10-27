@@ -1,0 +1,6 @@
+#!/bin/sh
+# Install to /usr/local/bin/azos-exwm-session (mode 755). Launched by the
+# display manager via /usr/share/xsessions/azos-exwm.desktop; hands over to
+# the home-manager-generated ~/.xsession, which sets up the environment,
+# starts graphical-session.target and runs Emacs as the window manager.
+exec /bin/sh "$HOME/.xsession"

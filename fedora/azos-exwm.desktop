@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=EXWM (azos)
+Comment=Emacs X Window Manager, configured by azos home-manager
+Exec=/usr/local/bin/azos-exwm-session
+Type=Application
+DesktopNames=EXWM

@@ -30,6 +30,7 @@
         ./overlays/default.nix
         (inputs.import-tree ./features)
         ./_machines/example.nix
+        ./_machines/example-home.nix
       ];
 
       systems = [

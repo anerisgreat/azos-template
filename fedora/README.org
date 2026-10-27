@@ -1,0 +1,75 @@
+#+title: Fedora host setup for azos
+
+Things the Fedora side has to provide because a user-level Nix install
+can't: anything setuid/PAM/udev, system daemons, and the display manager.
+Everything else comes from home-manager.
+
+* 1. Packages (dnf)
+
+#+begin_src bash
+# X server and an X-capable display manager. GDM in recent Fedora/GNOME may
+# no longer launch Xorg sessions; LightDM (or SDDM, or startx from a TTY) is
+# the safe choice. EXWM is X11-only.
+sudo dnf install xorg-x11-server-Xorg xorg-x11-xinit lightdm lightdm-gtk-greeter
+
+# Screen locker for s-<f2> (azos.exwm.lockCommand, default "slock").
+sudo dnf install slock
+
+# Usually already there on Workstation: pipewire + wireplumber (wpctl),
+# upower, udisks2, NetworkManager, bluez, cups.
+#+end_src
+
+Switching display manager (only if GDM can't start the EXWM session):
+#+begin_src bash
+sudo systemctl disable gdm && sudo systemctl enable lightdm
+#+end_src
+
+* 2. 1Password (if using the 1Password backend)
+
+From 1Password's own repository, not Nix: unlocking the CLI through the app
+and the browser extension need setgid helpers that Nix-in-$HOME can't install.
+
+#+begin_src bash
+sudo rpm --import https://downloads.1password.com/linux/keys/1password.asc
+sudo sh -c 'echo -e "[1password]\nname=1Password Stable Channel\nbaseurl=https://downloads.1password.com/linux/rpm/stable/\$basearch\nenabled=1\ngpgcheck=1\nrepo_gpgcheck=1\ngpgkey=https://downloads.1password.com/linux/keys/1password.asc" > /etc/yum.repos.d/1password.repo'
+sudo dnf install 1password 1password-cli
+#+end_src
+
+Then in the app: Settings -> Developer -> "Integrate with 1Password CLI"
+(and "Use the SSH agent" if ssh keys live there). Check with =op item list=.
+
+The browser extension only talks to the app for a browser installed on the
+host. A Nix-installed Chromium isn't on the app's list of trusted browsers;
+use the host's browser, or list the Nix one's executable name in
+=/etc/1password/custom_allowed_browsers= (one per line, root-owned) and
+restart the app.
+
+* 3. Nix
+
+Single-user install:
+#+begin_src bash
+sh <(curl -L https://nixos.org/nix/install) --no-daemon
+#+end_src
+
+Fedora runs SELinux in enforcing mode. If systemd user units or binaries
+under =/nix/store= fail with permission errors (check =journalctl -t setroubleshoot=
+/ =ausearch -m avc -ts recent=), the store has the wrong file labels. The
+Determinate Systems installer (multi-user) ships an SELinux policy for =/nix=
+if this turns into a fight.
+
+* 4. EXWM session
+
+#+begin_src bash
+sudo install -m 755 azos-exwm-session /usr/local/bin/
+sudo install -m 644 azos-exwm.desktop /usr/share/xsessions/
+#+end_src
+
+Pick "EXWM (azos)" at the login screen. It runs the home-manager-generated
+=~/.xsession=, so it only works after the first home-manager switch.
+
+* 5. GPU drivers for Nix GUI apps
+
+The first home-manager switch prints a warning with a command like
+=sudo /nix/store/...-non-nixos-gpu-setup=. Run it once (and again if
+home-manager asks after a nixpkgs bump) or Nix-built Chromium, mpv, Zoom
+etc. fall back to software rendering or fail to start.

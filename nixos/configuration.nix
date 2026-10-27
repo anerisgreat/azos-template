@@ -11,14 +11,26 @@
     # ./hardware-configuration.nix
     inputs.home-manager.nixosModules.home-manager
     suiteModules.nixos.base
+    suiteModules.nixos.desktop
+    suiteModules.nixos.exwm
+    suiteModules.nixos.dev
     # suiteModules.nixos.example
   ];
+
+  # Placeholders so the config evaluates before a real machine exists;
+  # ./hardware-configuration.nix (nixos-generate-config) overrides both.
+  nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+  fileSystems."/" = lib.mkDefault {
+    device = "/dev/disk/by-label/nixos";
+    fsType = "ext4";
+  };
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
   nixpkgs = {
     overlays = [
+      outputs.overlays.addpkgs
       outputs.overlays.modifications
       outputs.overlays.unstable-packages
     ];
@@ -38,9 +50,12 @@
     config.nix.registry;
 
   nix.settings = {
-    experimental-features = "nix-command flakes";
+    experimental-features = ["nix-command" "flakes"];
     auto-optimise-store = true;
   };
+
+  # Must match home-manager's azos.suites.exwm.enable (udisks2 for udiskie).
+  azos.suites.exwm.enable = true;
 
   networking.hostName = "example";
   networking.networkmanager.enable = true;
