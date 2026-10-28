@@ -111,8 +111,9 @@ sudo apt update && sudo apt install 1password 1password-cli
 Then:
 
 1. Start 1Password and sign in.
-2. Settings → Developer: turn on *Integrate with 1Password CLI*, and *Use
-   the SSH agent* if your SSH keys live in 1Password.
+2. Settings → Developer: turn on *Integrate with 1Password CLI* and *Use
+   the SSH agent*. The SSH agent is needed for SSH access and for commit
+   signing.
 3. Check that the CLI works. It should list your items after an
    approval prompt from the app:
    #+begin_src bash
@@ -218,6 +219,28 @@ Leave =home.stateVersion= as it is.
   the =azos.password-manager.pass.gpgKeyId= line*. Change =vault= in the
   copied file if your items aren't in "Private".
 
+  With 1Password you don't need GPG or pass at all: secrets, SSH and commit
+  signing all go through 1Password. Skip =examples/encryption.nix= and
+  step 10.
+
+  *Commit signing:* the copied file signs commits with an SSH key from
+  1Password, and needs that key's public half:
+  1. In 1Password, create an SSH key (New Item → SSH Key → Generate, type
+     Ed25519) or use an existing one. Make sure it's in a vault the SSH
+     agent serves; the Private vault is served by default.
+  2. Copy its public key (the =ssh-ed25519 AAAA...= line) and paste it into
+     =azos.git-config.signing.key= in =home-manager/password-manager.nix=,
+     replacing the =FILL-IN= text.
+  3. Add the same public key to GitHub (Settings → SSH and GPG keys → New
+     SSH key) *twice*: once with key type "Authentication" (for =git push=
+     over SSH) and once as "Signing" (so commits show as Verified). Do the
+     same on any other git host you use.
+
+  Signing runs through =/opt/1Password/op-ssh-sign=, which the 1Password
+  package installs. The app has to be running and unlocked, and it asks
+  you to approve each signature. If you don't want signing, delete the
+  =azos.git-config.signing= block.
+
 ** Optional features
 
 =examples/= has ready-to-edit modules for mail, DAV (phone todo sync),
@@ -316,7 +339,16 @@ corner, choose *EXWM (azos)*, and log in. LightDM remembers the choice.
 - =s-<f2>= locks the screen (slock: type your password and press Enter
   to unlock).
 - Sound works; =wpctl status= lists your devices.
-- If you use 1Password: =op item list= works from an Emacs shell.
+- If you use 1Password:
+  - =op item list= works from an Emacs shell.
+  - =ssh-add -l= lists your 1Password SSH key, and =ssh -T git@github.com=
+    greets you by name.
+  - Commit signing works. In a throwaway repo:
+    #+begin_src bash
+    cd "$(mktemp -d)" && git init -q && git commit --allow-empty -m test
+    git log --show-signature -1
+    #+end_src
+    1Password asks you to approve, and the log shows =Good "git" signature=.
 - In Emacs, =M-o p= copies a password.
 - =systemctl --user --failed= shows no failed units.
 

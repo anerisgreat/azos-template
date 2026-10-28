@@ -24,6 +24,16 @@
   azos.encryption.sshSupport = false;
   home.sessionVariables.SSH_AUTH_SOCK = "$HOME/.1password/agent.sock";
 
+  # Sign commits and tags with an SSH key stored in 1Password; the app asks
+  # you to approve each signature. Create or pick the key in 1Password, copy
+  # its public key, and add it to GitHub/GitLab as a *signing* key (separate
+  # from authentication keys) so commits show as verified there.
+  azos.git-config.signing = {
+    enable = true;
+    format = "ssh";
+    key = "FILL-IN: ssh-ed25519 AAAA... (the public key)";
+  };
+
   # Git over HTTPS via the password manager: host -> item. The item's
   # "password" field is used, and its "username" field if present.
   # azos.git-config.credentials = {
