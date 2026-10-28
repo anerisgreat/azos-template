@@ -52,7 +52,7 @@ in {
     #       tls = {
     #         enable = true;
     #         useStartTls = true;
-    #         # Distro-independent CA bundle (Fedora has no
+    #         # Distro-independent CA bundle (not every distro has
     #         # /etc/ssl/certs/ca-certificates.crt).
     #         certificatesFile = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     #       };

@@ -1,4 +1,4 @@
-# Standalone home-manager for a non-NixOS host (e.g. Fedora with a user-level
+# Standalone home-manager for a non-NixOS host (e.g. Debian with a user-level
 # Nix install). Rename "user@example" to "<your user>@<hostname>" so a bare
 # `home-manager switch --flake '.?submodules=1'` picks it up automatically.
 {

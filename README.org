@@ -9,47 +9,26 @@ submodule) holds the shared suites; this repo holds the machine's values.
 |--------------------------------+---------------------------------------------------------------|
 | =home-manager/home.nix=        | Home-manager entry point. Fields marked FILL IN are required. |
 | =examples/=                    | Optional feature modules to copy into =home-manager/= and edit. Not imported. |
-| =_machines/example-home.nix=   | Standalone home-manager (non-NixOS, e.g. Fedora).             |
+| =_machines/example-home.nix=   | Standalone home-manager (non-NixOS, e.g. Debian).             |
 | =_machines/example.nix=        | NixOS system (=nixos/configuration.nix=).                     |
 | =features/=                    | Machine-specific feature modules (auto-discovered).           |
-| =fedora/=                      | Host-side setup for Fedora: packages, 1Password, EXWM session. |
+| =debian/=                      | Full Debian 13 setup guide, plus the EXWM session files.      |
 
-* New machine: Fedora + user-level Nix
+* New machine: Debian + user-level Nix
 
-1. Do the host side first: [[file:fedora/README.org]].
-2. Clone with the submodule and move azos-core to its latest version:
-   #+begin_src bash
-   git clone --recurse-submodules git@github.com:anerisgreat/azos-template.git ~/azos
-   cd ~/azos
-   git submodule update --remote azos-core
-   nix --extra-experimental-features 'nix-command flakes' flake update --flake '.?submodules=1' azos-core
-   #+end_src
-3. Fill in:
-   - =_machines/example-home.nix=: rename ="user@example"= to
-     =<user>@<hostname>=.
-   - =home-manager/home.nix=: everything marked FILL IN.
-   - Password manager: for 1Password, =cp examples/password-manager-1password.nix home-manager/password-manager.nix=,
-     add it to =imports= and remove the =pass.gpgKeyId= line.
-   - Any other =examples/*.nix= you want, the same way.
-   - =git add= new files: flakes only see tracked files (inside =azos-core/= too).
-4. Switch. The first run needs flakes enabled explicitly; afterwards
-   home-manager writes =~/.config/nix/nix.conf= itself.
-   #+begin_src bash
-   nix --extra-experimental-features 'nix-command flakes' develop '.?submodules=1' -c azos-switch
-   #+end_src
-   =azos-switch= backs up existing dotfiles it replaces (=~/.bashrc=,
-   =~/.profile=, ...) as =*.hm-backup=.
-5. Run the =sudo .../non-nixos-gpu-setup= command the switch prints.
-6. Log out, pick "EXWM (azos)" at the login screen.
+Follow [[file:debian/README.org]] from start to finish. It covers the Debian
+install, host packages, 1Password, Nix, filling in this repo, the first
+switch and the login session, with a check after each step and a
+troubleshooting section.
 
-Afterwards: =nix develop= (or direnv) then =azos-switch=, =azos-update=,
-=azos-update-azos-core=.
+The other non-NixOS distros work the same way on the Nix side; only the
+host packages and the 1Password repo differ.
 
 * New machine: NixOS
 
 Copy the machine's =hardware-configuration.nix= into =nixos/=, uncomment
 its import in =nixos/configuration.nix=, adjust hostname/user/locale there,
-fill in =home-manager/home.nix= as above, then:
+fill in =home-manager/home.nix= (see step 7 of [[file:debian/README.org]]), then:
 
 #+begin_src bash
 sudo nixos-rebuild switch --flake '.?submodules=1#example'

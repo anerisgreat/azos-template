@@ -1,15 +1,16 @@
 # 1Password as the password manager (instead of the default GNU pass).
 #
-# Host side first (see ../fedora/README.org): install the 1Password app and
-# CLI from 1Password's RPM repo, sign in to the app, and enable
+# Host side first (see ../debian/README.org, step 4): install the 1Password app
+# and CLI from 1Password's apt repo, sign in to the app, and enable
 # Settings -> Developer -> "Integrate with 1Password CLI". Check with
 # `op item list` before switching.
 {...}: {
   azos.password-manager.pass.enable = false;
   azos.password-manager.onepassword = {
     enable = true;
-    # The host's `op` (from the RPM) is used by default. Only install it from
-    # nixpkgs if there's no host package -- that one can't unlock via the app.
+    # The host's `op` (from the apt package) is used by default. Only install
+    # it from nixpkgs if there's no host package -- that one can't unlock via
+    # the app.
     # installCli = true;
     # opCommand = "op";
 

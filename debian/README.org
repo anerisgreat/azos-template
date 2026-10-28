@@ -1,0 +1,404 @@
+#+title: Setting up azos on Debian 13 (trixie)
+
+From a blank disk to an EXWM session configured by azos, with Nix installed
+in user mode. Do the steps in order; each one says how to check it worked
+before moving on. If something goes wrong, see [[*Troubleshooting][Troubleshooting]] at the end.
+
+* How it fits together
+
+- *Debian* provides what a user-level Nix install can't: the X server, the
+  login screen, the screen locker, system services (audio, network,
+  bluetooth), GPU drivers, and anything that needs root (setuid, PAM, udev).
+- *Nix + home-manager* (this repo) provides everything else: Emacs/EXWM,
+  your apps, dotfiles, user services.
+- The login screen starts =/usr/local/bin/azos-exwm-session=, which runs
+  =~/.xsession=. home-manager writes =~/.xsession=, and it starts Emacs as
+  the window manager.
+
+Budget an hour or two. The first home-manager switch alone downloads and
+builds a lot.
+
+* 1. Install Debian
+
+Use the netinst image from https://www.debian.org/download.
+
+Two installer choices matter:
+
+1. *Root password: leave it empty.* The installer then gives your user
+   sudo. If you set one, your user won't have sudo; step 2 shows the fix.
+2. *Software selection:* tick *Xfce*, *standard system utilities*, and
+   (optionally) *SSH server*. Untick GNOME.
+
+   Xfce isn't for daily use. It brings in everything else you'd otherwise
+   install by hand (LightDM, PipeWire audio, NetworkManager, bluetooth,
+   polkit, udisks, upower), and it gives you a working desktop to fall back
+   on if the EXWM session ever fails to start. If you'd rather not have
+   Xfce, see [[*Minimal install without Xfce][Minimal install without Xfce]].
+
+Check: you can log in to Xfce and you have network.
+
+* 2. Make sure you have sudo
+
+Open a terminal:
+
+#+begin_src bash
+sudo -v && echo OK
+#+end_src
+
+If you get "not in the sudoers file", add yourself with the root password
+and then *log out completely and log back in* (opening a new terminal
+isn't enough):
+
+#+begin_src bash
+su -c "usermod -aG sudo $USER"
+#+end_src
+
+* 3. Host packages
+
+#+begin_src bash
+sudo apt update
+sudo apt install curl xz-utils git gpg slock
+#+end_src
+
+- =curl= and =xz-utils= are needed by the Nix installer, and =gpg= by the
+  1Password repo setup. A netinst install may not have them.
+- =git= is needed to clone this repo. home-manager installs its own git
+  later.
+- =slock= is the screen locker =s-<f2>= runs. It has to come from Debian
+  because it needs setuid. To use a different locker, install it here and
+  set =azos.exwm.lockCommand= in =home-manager/home.nix=.
+
+** Minimal install without Xfce
+
+If you didn't tick Xfce in step 1, install the parts it would have brought
+in:
+
+#+begin_src bash
+sudo apt install xorg xinit lightdm lightdm-gtk-greeter \
+  dbus-user-session polkitd pipewire-audio wireplumber \
+  network-manager bluez upower udisks2
+sudo systemctl enable lightdm
+#+end_src
+
+NetworkManager only manages interfaces that aren't already listed in
+=/etc/network/interfaces=. If the installer configured your connection
+there, comment those lines out (keep =lo=) and reboot so NetworkManager
+takes over.
+
+* 4. 1Password (only if you use the 1Password backend)
+
+Skip this if you're staying on GNU pass.
+
+Install the app and CLI from 1Password's own apt repo, not from Nix.
+Unlocking the CLI through the app and the browser extension both rely on
+setgid helpers that a Nix install in your home directory can't provide.
+These commands are from https://support.1password.com/install-linux/:
+
+#+begin_src bash
+curl -sS https://downloads.1password.com/linux/keys/1password.asc \
+  | sudo gpg --dearmor --output /usr/share/keyrings/1password-archive-keyring.gpg
+echo 'deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main' \
+  | sudo tee /etc/apt/sources.list.d/1password.list
+sudo mkdir -p /etc/debsig/policies/AC2D62742012EA22/
+curl -sS https://downloads.1password.com/linux/debian/debsig/1password.pol \
+  | sudo tee /etc/debsig/policies/AC2D62742012EA22/1password.pol
+sudo mkdir -p /usr/share/debsig/keyrings/AC2D62742012EA22
+curl -sS https://downloads.1password.com/linux/keys/1password.asc \
+  | sudo gpg --dearmor --output /usr/share/debsig/keyrings/AC2D62742012EA22/debsig.gpg
+sudo apt update && sudo apt install 1password 1password-cli
+#+end_src
+
+Then:
+
+1. Start 1Password and sign in.
+2. Settings → Developer: turn on *Integrate with 1Password CLI*, and *Use
+   the SSH agent* if your SSH keys live in 1Password.
+3. Check that the CLI works. It should list your items after an
+   approval prompt from the app:
+   #+begin_src bash
+   op item list
+   #+end_src
+
+The browser extension only talks to the app from a browser it trusts.
+Browsers installed through Nix aren't on that list. Either use a browser
+installed from Debian, or add the Nix browser's executable name (e.g.
+=chromium=) as one line in =/etc/1password/custom_allowed_browsers=
+(owned by root), then restart the app.
+
+* 5. Install Nix (single-user)
+
+#+begin_src bash
+sh <(curl -L https://nixos.org/nix/install) --no-daemon
+#+end_src
+
+It asks for sudo once, to create =/nix=; everything after that runs as your
+user. When it's done, load Nix into the current shell (new shells do this
+automatically):
+
+#+begin_src bash
+. ~/.nix-profile/etc/profile.d/nix.sh
+nix --version
+#+end_src
+
+Flakes aren't enabled by default yet. Turn them on for this terminal so the
+remaining commands work without extra flags. After the first switch,
+home-manager writes =~/.config/nix/nix.conf= and this is no longer needed.
+
+#+begin_src bash
+export NIX_CONFIG="experimental-features = nix-command flakes"
+#+end_src
+
+*Do the rest of this guide in this same terminal.* If you open a new one,
+run the =export= again.
+
+* 6. Get the config
+
+The azos-core submodule is set to an SSH URL, which won't work until this
+machine has an SSH key on GitHub. Clone over HTTPS instead. The =-c=
+option applies only to that one command; the repos' stored URLs stay SSH
+for pushing later.
+
+#+begin_src bash
+git -c url."https://github.com/".insteadOf=git@github.com: \
+  clone --recurse-submodules https://github.com/anerisgreat/azos-template.git ~/azos
+cd ~/azos
+#+end_src
+
+Move azos-core to its latest version (the template may point at an older
+one) and record it in the lock file:
+
+#+begin_src bash
+git -c url."https://github.com/".insteadOf=git@github.com: \
+  submodule update --remote azos-core
+nix flake update --flake '.?submodules=1' azos-core
+#+end_src
+
+Check: =ls azos-core/suites= lists the suites.
+
+This clone's =origin= is the template. To keep this machine's config in a
+repo of its own, create an empty repo, then:
+
+#+begin_src bash
+git remote rename origin template
+git remote add origin <your-new-repo-url>
+#+end_src
+
+* 7. Fill in the config
+
+** Your user and hostname
+
+home-manager picks its configuration by =<user>@<hostname>=. Print yours:
+
+#+begin_src bash
+echo "$USER@$(hostname)"
+#+end_src
+
+In =_machines/example-home.nix=, replace ="user@example"= with that value.
+
+** =home-manager/home.nix=
+
+Edit everything marked =FILL IN=:
+
+- =azos.name=, =azos.git-config.userName=, =azos.git-config.userEmail=
+- =home.username= (your =$USER=) and =home.homeDirectory= (your =$HOME=)
+- The password manager (next section)
+
+Leave =home.stateVersion= as it is.
+
+** Password manager
+
+- *GNU pass:* set =azos.password-manager.pass.gpgKeyId= to the ID of your
+  GPG key. You'll set up the key and the store after the first switch
+  (step 10).
+- *1Password:* copy the example in, then add it to =imports=:
+  #+begin_src bash
+  cp examples/password-manager-1password.nix home-manager/password-manager.nix
+  #+end_src
+  In =home.nix=, uncomment =./password-manager.nix= in =imports= and *delete
+  the =azos.password-manager.pass.gpgKeyId= line*. Change =vault= in the
+  copied file if your items aren't in "Private".
+
+** Optional features
+
+=examples/= has ready-to-edit modules for mail, DAV (phone todo sync),
+GPG/YubiKey/signing, headphones, send-alert and Claude. Each file says at
+the top what it's for. To use one:
+
+#+begin_src bash
+cp examples/mail.nix home-manager/mail.nix
+#+end_src
+
+Fill in its =FILL IN= values and uncomment the matching line in =imports= in
+=home.nix=. =examples/claude.nix= has nothing to fill in; import it as is.
+
+You can start with none of these and add them after you're up and running.
+
+** Stage new files
+
+Nix flakes only see files git knows about. A copied file you haven't
+added is silently missing, and you get an error like "path ... does not
+exist". After copying anything:
+
+#+begin_src bash
+git add -A
+#+end_src
+
+Check: this prints a store path with no errors (it evaluates the config
+without building it):
+
+#+begin_src bash
+nix eval '.?submodules=1#homeConfigurations."'"$USER@$(hostname)"'".activationPackage.drvPath'
+#+end_src
+
+* 8. First switch
+
+#+begin_src bash
+nix develop '.?submodules=1' -c azos-switch
+#+end_src
+
+=azos-switch= runs home-manager. This first time, it runs home-manager
+straight from Nix because it isn't installed yet. Expect a long wait.
+
+home-manager replaces some of Debian's dotfiles (=~/.bashrc=, =~/.profile=,
+...). The originals are kept as =~/.bashrc.hm-backup= and so on.
+
+Check: it ends without errors, and a new terminal has =home-manager= and
+=emacs= on the PATH:
+
+#+begin_src bash
+bash -lc 'command -v home-manager emacs'
+#+end_src
+
+* 9. GPU drivers for Nix apps
+
+Nix-built GUI apps can't use Debian's GPU drivers until you run a one-time
+setup as root. Without it, Chromium, mpv, Zoom etc. fall back to slow
+software rendering or don't start. home-manager prints a reminder during
+the switch. The setup command is already on your PATH:
+
+#+begin_src bash
+sudo "$(readlink -f "$(bash -lc 'command -v non-nixos-gpu-setup')")"
+#+end_src
+
+Run it again whenever home-manager prints the reminder again, usually after
+a nixpkgs update.
+
+* 10. GPG and pass (only if you use GNU pass)
+
+Skip this if you use 1Password.
+
+1. Import your GPG key. From a YubiKey:
+   #+begin_src bash
+   gpg --card-status
+   gpg --card-edit     # then: fetch, quit (needs the key's URL set on the card)
+   #+end_src
+   Or from a backup: =gpg --import secret-key.asc=. Then mark it trusted:
+   =gpg --edit-key <id>=, =trust=, =5=, =quit=.
+2. Put your password store at =~/.password-store=, e.g. by cloning it.
+3. Check: =azos-password-list= lists your entries, and =azos-password-get
+   <entry>= prints a password.
+
+* 11. Install the EXWM session
+
+From =~/azos=:
+
+#+begin_src bash
+sudo install -m 755 debian/azos-exwm-session /usr/local/bin/
+sudo install -m 644 debian/azos-exwm.desktop /usr/share/xsessions/
+#+end_src
+
+Log out. On the LightDM screen, click the session icon in the top-right
+corner, choose *EXWM (azos)*, and log in. LightDM remembers the choice.
+
+* 12. Check the session
+
+- Emacs is full-screen and is the window manager.
+- =s-<f2>= locks the screen (slock: type your password and press Enter
+  to unlock).
+- Sound works; =wpctl status= lists your devices.
+- If you use 1Password: =op item list= works from an Emacs shell.
+- In Emacs, =M-o p= copies a password.
+- =systemctl --user --failed= shows no failed units.
+
+* Day to day
+
+From =~/azos=, inside =nix develop '.?submodules=1'=:
+
+| Command                 | What it does                                   |
+|-------------------------+------------------------------------------------|
+| =azos-switch=           | Apply changes to the config                    |
+| =azos-update=           | Update all flake inputs (nixpkgs, ...)         |
+| =azos-update-azos-core= | Update only azos-core in the lock file         |
+
+To move to a newer azos-core: =git submodule update --remote azos-core=,
+then =azos-update-azos-core=, then =azos-switch=. Commit the result.
+
+Debian updates (=sudo apt update && sudo apt upgrade=) are separate and
+don't affect the Nix side.
+
+* Troubleshooting
+
+** =nix: command not found=
+
+The current shell hasn't loaded Nix: =. ~/.nix-profile/etc/profile.d/nix.sh=.
+New login shells load it on their own, through =~/.profile= (before the
+first switch, the installer's line in it; afterwards, home-manager's).
+
+** "experimental Nix feature 'nix-command' is disabled"
+
+You're in a new terminal before the first switch. Run the =export
+NIX_CONFIG=...= line from step 5 again.
+
+** "path ... does not exist" or a new module seems to be ignored
+
+A file isn't tracked by git. Run =git add -A= in =~/azos=, and inside
+=azos-core/= too if you changed something there.
+
+** "Existing file ... would be clobbered" during the switch
+
+A backup from an earlier attempt is in the way. Delete the =*.hm-backup=
+file it names (after checking you don't need it) and switch again.
+
+** The EXWM session drops straight back to the login screen
+
+Log in to Xfce (or switch to a text console with Ctrl-Alt-F3) and look at
+the session log:
+
+#+begin_src bash
+less ~/.xsession-errors
+#+end_src
+
+Common causes: the first switch didn't finish (so =~/.xsession= is missing
+or old), or Emacs fails to start. Run =emacs= from a terminal in Xfce to see
+the error.
+
+** Nix GUI apps are black, slow, or won't start
+
+Run the GPU setup from step 9 again.
+
+** Nix builds fail with sandbox or permission errors
+
+Single-user Nix sandboxes builds with unprivileged user namespaces, which
+Debian allows by default. Check:
+
+#+begin_src bash
+sysctl kernel.unprivileged_userns_clone   # should be 1
+#+end_src
+
+If it's 0, something changed it: look for the setting in
+=/etc/sysctl.conf= and =/etc/sysctl.d/=.
+
+** No sound
+
+#+begin_src bash
+systemctl --user status pipewire wireplumber
+#+end_src
+
+If either is missing, install =pipewire-audio wireplumber= with apt and
+log in again.
+
+** =op= asks you to sign in, or can't reach the app
+
+The app must be running and unlocked, with *Integrate with 1Password CLI*
+on (step 4). Make sure you're using Debian's =op= (=command -v op= should
+print =/usr/bin/op=), not one from Nix.
